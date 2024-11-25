@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Nền của SeekBar -->
+    <item android:id="@android:id/background">
+        <shape>
+            <corners android:radius="30dp" />
+            <solid android:color="@color/white" /> <!-- Màu nền -->
+        </shape>
+    </item>
+
+    <!-- Secondary progress của SeekBar -->
+    <item android:id="@android:id/secondaryProgress">
+        <clip>
+            <shape>
+                <corners android:radius="30dp" />
+                <solid android:color="#B3CCE5" /> <!-- Màu của secondary progress -->
+            </shape>
+        </clip>
+    </item>
+
+    <!-- Primary progress của SeekBar -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape>
+                <corners android:radius="30dp" />
+                <solid android:color="#80C4E9" /> <!-- Màu của progress -->
+            </shape>
+        </clip>
+    </item>
+
+</layer-list>
