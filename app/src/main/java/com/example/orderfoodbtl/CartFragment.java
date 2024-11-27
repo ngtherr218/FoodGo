@@ -1,8 +1,15 @@
 package com.example.orderfoodbtl;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -30,8 +37,10 @@ public class CartFragment extends Fragment {
     private RecyclerView recyclerView;
     private CartAdapter cartAdapter;
     private DBHelper databaseHelper;
-    private TextView subtotalValue, totalValue,deliveryValue;
+    private TextView  totalValue;
     private Button checkoutButton;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -79,9 +88,7 @@ public class CartFragment extends Fragment {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_cart, container, false);
 
-        subtotalValue = view.findViewById(R.id.subtotalValue);
         totalValue = view.findViewById(R.id.totalValue);
-        deliveryValue = view.findViewById(R.id.deliveryValue);
         checkoutButton = view.findViewById(R.id.checkoutButton);
 
         databaseHelper = new DBHelper(getContext());
@@ -90,22 +97,13 @@ public class CartFragment extends Fragment {
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         List<Product> caList = databaseHelper.getAllCart(userID);
 
-        cartAdapter = new CartAdapter(getContext(),caList,deliveryValue,subtotalValue,totalValue);
+        cartAdapter = new CartAdapter(getContext(),caList,totalValue);
         recyclerView.setAdapter(cartAdapter);
 
-        if(databaseHelper.getAllCart(userID).isEmpty()){
-            deliveryValue.setText("$0.00");
-        }
 
         double subtotal = databaseHelper.SubTotalPrice(userID);
-        double delivery = Double.parseDouble(deliveryValue.getText().toString().replace("$",""));
+        String formattedtotal = "$" + String.format("%.2f", subtotal);
 
-        double total = subtotal + delivery;
-
-        String formattedSubtotal = "$" + String.format("%.2f", subtotal);
-        String formattedtotal = "$" + String.format("%.2f", total);
-
-        subtotalValue.setText(formattedSubtotal);
         totalValue.setText(formattedtotal);
 
         checkoutButton.setOnClickListener(new View.OnClickListener() {
@@ -115,13 +113,58 @@ public class CartFragment extends Fragment {
                     Toast.makeText(requireContext(), "Nothing to buy", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                Intent intent = new Intent(getContext(), PaymentActivity.class);
-                intent.putExtra("subtotalValue",subtotalValue.getText());
-                intent.putExtra("totalValue",totalValue.getText());
-                startActivity(intent);
+
+                if (ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // Nếu chưa có quyền, yêu cầu quyền
+                    requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+                } else {
+                    // Nếu quyền đã được cấp, mở PaymentActivity
+                    openPaymentActivity();
+                }
             }
         });
 
         return view;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Quyền được cấp, mở PaymentActivity
+                openPaymentActivity();
+            } else {
+                // Quyền bị từ chối
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), android.Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    showPermissionDeniedDialog();
+                }
+            }
+        }
+    }
+
+    // Hàm mở PaymentActivity
+    private void openPaymentActivity() {
+        Intent intent = new Intent(getContext(), PaymentActivity.class);
+        intent.putExtra("totalValue", totalValue.getText());
+        startActivity(intent);
+    }
+
+    private void showPermissionDeniedDialog() {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Quyền bị từ chối")
+                .setMessage("Bạn cần cấp quyền trong cài đặt để tiếp tục sử dụng tính năng này.")
+                .setPositiveButton("Đi tới Cài đặt", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Mở cài đặt ứng dụng để người dùng cấp quyền thủ công
+                        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        Uri uri = Uri.fromParts("package", getContext().getPackageName(), null);
+                        intent.setData(uri);
+                        startActivity(intent);
+                    }
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
     }
 }

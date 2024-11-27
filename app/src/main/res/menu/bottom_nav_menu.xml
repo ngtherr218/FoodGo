@@ -10,7 +10,7 @@
     <item
         android:id="@+id/cart"
         android:icon="@drawable/baseline_shopping_cart_24"
-        android:title="cart"
+        android:title="Cart"
         app:showAsAction="always" />
 
     <item

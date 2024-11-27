@@ -1,8 +1,21 @@
 package com.example.orderfoodbtl;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -11,10 +24,19 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import com.dinuscxj.progressbar.CircleProgressBar;
 import com.example.orderfoodbtl.DBHelper.DBHelper;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
 
 public class PaymentActivity extends AppCompatActivity {
 
@@ -22,7 +44,12 @@ public class PaymentActivity extends AppCompatActivity {
     TextView subtotalValue, totalValue, totalValue2, submit;
     ImageButton back;
     Button goBack;
-    EditText et_address;
+    TextView et_address;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private Dialog loadingDialog;
+    boolean flag = true;
 
 
     @Override
@@ -37,10 +64,53 @@ public class PaymentActivity extends AppCompatActivity {
         submit = findViewById(R.id.button_submit);
         et_address = findViewById(R.id.et_address);
 
+        // Khởi tạo LocationManager
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+        // Khởi tạo dialog loading
+        createLoadingDialog();
+
+        // Hiển thị dialog loading
+        showLoadingDialog();
+
+        CircleProgressBar circleProgressBar = loadingDialog.findViewById(R.id.line_progress);
+        CountDownTimer countDownTimer = new CountDownTimer(60000, 15) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (circleProgressBar.getProgress() == 100) {
+                    flag = false;
+                }
+                if (circleProgressBar.getProgress() == 0) {
+                    flag = true;
+                }
+                if (flag) {
+                    circleProgressBar.setProgress(circleProgressBar.getProgress() + 1);
+                } else {
+                    circleProgressBar.setProgress(circleProgressBar.getProgress() - 1);
+                }
+            }
+
+            @Override
+            public void onFinish() {
+
+            }
+        };
+        countDownTimer.start();
+
+        // Kiểm tra quyền truy cập vị trí
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            // Nếu quyền đã được cấp, bắt đầu lấy vị trí
+            startListeningLocation();
+        } else {
+            // Nếu quyền chưa được cấp, yêu cầu quyền
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        }
+
         Intent intent = getIntent();
-        subtotalValue.setText(intent.getStringExtra("subtotalValue"));
-        totalValue.setText(intent.getStringExtra("totalValue"));
-        totalValue2.setText(intent.getStringExtra("totalValue"));
+        subtotalValue.setText(intent.getStringExtra("totalValue"));
+
 
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -52,7 +122,7 @@ public class PaymentActivity extends AppCompatActivity {
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(et_address.getText().toString().isEmpty()){
+                if (et_address.getText().toString().isEmpty()) {
                     Toast.makeText(PaymentActivity.this, "Enter the address to send to.", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -78,5 +148,136 @@ public class PaymentActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void startListeningLocation() {
+        try {
+            // Khởi tạo LocationListener
+            locationListener = new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    // Khi có thay đổi vị trí, nhận được thông báo
+                    double latitude = location.getLatitude();
+                    double longitude = location.getLongitude();
+                    Toast.makeText(PaymentActivity.this, "Vị trí hiện tại: " +
+                            "Latitude: " + latitude + ", Longitude: " + longitude, Toast.LENGTH_LONG).show();
+                    getAddressFromLocation(latitude, longitude);
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+                    // Phương thức này không còn được sử dụng trong API mới, có thể bỏ qua
+                }
+
+                @Override
+                public void onProviderEnabled(@NonNull String provider) {
+                    // Khi GPS hoặc mạng được bật
+                }
+
+                @Override
+                public void onProviderDisabled(@NonNull String provider) {
+                    // Khi GPS hoặc mạng bị tắt
+                }
+            };
+
+            // Cập nhật vị trí mỗi 10 giây hoặc khi di chuyển tối thiểu 10 mét
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 10, locationListener);
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 10, locationListener);
+            }
+        } catch (SecurityException e) {
+            // Xử lý nếu không có quyền truy cập vị trí
+            Toast.makeText(this, "No location access", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Dừng việc theo dõi vị trí khi Activity bị hủy
+        if (locationManager != null && locationListener != null) {
+            locationManager.removeUpdates(locationListener);
+        }
+    }
+
+    private void getAddressFromLocation(double latitude, double longitude) {
+
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+
+        try {
+            // Lấy danh sách các địa chỉ từ tọa độ
+            List<android.location.Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                android.location.Address address = addresses.get(0);
+
+                // Lấy các thành phần của địa chỉ
+                StringBuilder addressString = new StringBuilder();
+
+                // Số nhà, số ngõ, đường
+                String street = address.getThoroughfare();  // Đường
+                String subStreet = address.getSubThoroughfare();  // Số nhà, số ngõ
+                if (subStreet != null) {
+                    addressString.append(subStreet).append(", ");
+                }
+                if (street != null) {
+                    addressString.append(street).append(", ");
+                }
+
+                // Phường, xã, quận
+                String subLocality = address.getSubLocality();  // Phường, xã
+                if (subLocality != null) {
+                    addressString.append(subLocality).append(", ");
+                }
+
+                String locality = address.getLocality();  // Quận, thành phố
+                if (locality != null) {
+                    addressString.append(locality).append(", ");
+                }
+
+                // Tỉnh, thành phố
+                String adminArea = address.getAdminArea();  // Tỉnh, thành phố
+                if (adminArea != null) {
+                    addressString.append(adminArea).append(", ");
+                }
+
+                // Quốc gia
+                String country = address.getCountryName();
+                if (country != null) {
+                    addressString.append(country);
+                }
+
+                // Cập nhật địa chỉ lên TextView
+                et_address.setText(addressString.toString());
+            } else {
+                et_address.setText("Address not found");
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            et_address.setText("Error getting location name");
+        } finally {
+            // Ẩn dialog loading khi hoàn tất
+            hideLoadingDialog();
+        }
+    }
+
+    private void createLoadingDialog() {
+        loadingDialog = new Dialog(this);
+        loadingDialog.setContentView(R.layout.dialog_loading);
+        loadingDialog.setCancelable(false);
+        loadingDialog.getWindow().setBackgroundDrawableResource(R.drawable.border_dialog);
+    }
+
+    private void showLoadingDialog() {
+        if (loadingDialog != null && !loadingDialog.isShowing()) {
+            loadingDialog.show();
+        }
+    }
+
+    private void hideLoadingDialog() {
+        if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
     }
 }

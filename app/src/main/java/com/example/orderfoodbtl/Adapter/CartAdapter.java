@@ -22,13 +22,11 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
     private Context context;
     private List<Product> cartList;
     DBHelper dbHelper;
-    private TextView subtotalValue, totalValue,deliveryValue;
+    private TextView subtotalValue, totalValue;
 
-    public CartAdapter( Context context,List<Product> cartList, TextView deliveryValue, TextView subtotalValue, TextView totalValue) {
+    public CartAdapter( Context context,List<Product> cartList, TextView totalValue) {
         this.cartList = cartList;
         this.context = context;
-        this.deliveryValue = deliveryValue;
-        this.subtotalValue = subtotalValue;
         this.totalValue = totalValue;
     }
 
@@ -107,11 +105,8 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
 
         // Nếu có các thành phần khác như tổng giá, hãy cập nhật chúng ở đây
         double subtotal = dbHelper.SubTotalPrice(userID);
+        double total = subtotal;
 
-        double delivery = Double.parseDouble(deliveryValue.getText().toString().replace("$",""));
-
-        double total = subtotal + delivery;
-        subtotalValue.setText("$" + String.format("%.2f", subtotal));
         String formattedtotal = "$" + String.format("%.2f", total);
         totalValue.setText(formattedtotal);
     }
