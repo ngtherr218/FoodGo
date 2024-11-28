@@ -42,7 +42,7 @@ public class PaymentActivity extends AppCompatActivity {
 
     DBHelper dbHelper;
     TextView subtotalValue, totalValue, totalValue2, submit;
-    ImageButton back;
+    ImageButton back, changeLocation;
     Button goBack;
     TextView et_address;
     private LocationManager locationManager;
@@ -63,6 +63,7 @@ public class PaymentActivity extends AppCompatActivity {
         back = findViewById(R.id.back);
         submit = findViewById(R.id.button_submit);
         et_address = findViewById(R.id.et_address);
+        changeLocation = findViewById(R.id.location);
 
         // Khởi tạo LocationManager
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -122,10 +123,30 @@ public class PaymentActivity extends AppCompatActivity {
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
                 if (et_address.getText().toString().isEmpty()) {
                     Toast.makeText(PaymentActivity.this, "Enter the address to send to.", Toast.LENGTH_SHORT).show();
                     return;
                 }
+
+                dbHelper = new DBHelper(PaymentActivity.this);
+                int userID = dbHelper.getUserId(PaymentActivity.this);
+                String valueString = totalValue2.getText().toString().replace("$", "").trim();
+                double totalValue;
+                try {
+                    totalValue = Double.parseDouble(valueString.replace(",","."));
+                    Toast.makeText(PaymentActivity.this, "heheh "+ totalValue, Toast.LENGTH_SHORT).show();
+                } catch (NumberFormatException e) {
+                    totalValue = 0.0; // Giá trị mặc định nếu có lỗi
+                    e.printStackTrace();
+                }
+                dbHelper.addInvoice(userID, totalValue);
+                int invoiceID = dbHelper.getInvoiceID(userID);
+                if (invoiceID != -1) {
+                    dbHelper.addInvoiceDetail(invoiceID, userID);
+                    Toast.makeText(PaymentActivity.this, "add Invoice successful", Toast.LENGTH_SHORT).show();
+                }
+
                 Dialog dialog = new Dialog(PaymentActivity.this);
                 dialog.setContentView(R.layout.dialog_sucess);
                 dialog.setCancelable(false);
@@ -148,6 +169,15 @@ public class PaymentActivity extends AppCompatActivity {
                 });
             }
         });
+
+        changeLocation.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent1 = new Intent(PaymentActivity.this,MapsActivity.class);
+                startActivity(intent1);
+            }
+        });
+
     }
 
     private void startListeningLocation() {

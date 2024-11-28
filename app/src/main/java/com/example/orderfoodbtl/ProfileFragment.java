@@ -21,7 +21,7 @@ import com.example.orderfoodbtl.DBHelper.DBHelper;
  */
 public class ProfileFragment extends Fragment {
 
-    private LinearLayout signout;
+    private LinearLayout signout, History;
     private DBHelper dbHelper;
     private TextView nameUser, emailUser;
     private ImageButton changeInformation;
@@ -106,6 +106,17 @@ public class ProfileFragment extends Fragment {
                 }
             }
         });
+        History = view.findViewById(R.id.History);
+        History.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getContext(), InvoiceActivity.class);
+                startActivity(intent);
+            }
+        });
+
         return view;
+
+
     }
 }

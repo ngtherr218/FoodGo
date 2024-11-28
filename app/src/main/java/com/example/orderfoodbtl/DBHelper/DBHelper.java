@@ -7,8 +7,8 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
-import android.widget.Toast;
 
+import com.example.orderfoodbtl.Model.Invoice;
 import com.example.orderfoodbtl.Model.Product;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ import java.util.List;
 
 public class DBHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "product_db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 9;
 
     private static final String TABLE_USERS = "Account";
     private static final String USER_ID = "id";
@@ -43,6 +43,23 @@ public class DBHelper extends SQLiteOpenHelper {
     private static final String FAVORITE_ID = "id";
     private static final String FAVORITE_USER_ID = "userId";
     private static final String FAVORITE_PRODUCT_ID = "productId";
+
+    //Invoice Table
+    private static final String TABLE_INVOICE = "Invoice";
+    private static final String INVOICE_ID = "invoice_id";
+    private static final String INVOICE_USER_ID = "userId";
+    private static final String INVOICE_DATE = "date";
+    private static final String INVOICE_STATUS = "status";
+    private static final String INVOICE_TOTAL_AMOUNT = "total_amount";
+
+    //InvoiceDetail
+    private static final String TABLE_INVOICE_DETAIL = "InvoiceDetail";
+    public static final String DETAIL_ID = "detail_id";
+    private static final String DETAIL_PRODUCT_ID = "productId";
+    private static final String DETAIL_QUANTITY = "quantity";
+    private static final String DETAIL_TOTAL_PRICE = "totalprice";
+    public static final String DETAIL_INVOICE_ID = "invoice_id";
+
 
     public DBHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -154,6 +171,25 @@ public class DBHelper extends SQLiteOpenHelper {
                 + "FOREIGN KEY (" + FAVORITE_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + USER_ID + "), "
                 + "FOREIGN KEY (" + FAVORITE_PRODUCT_ID + ") REFERENCES " + TABLE_PRODUCTS + "(" + COLUMN_ID+ "))";
         db.execSQL(CREATE_FAVORITE_TABLE);
+
+        String CREATE_TABLE_INVOICE = "CREATE TABLE " + TABLE_INVOICE + " ("
+                + INVOICE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + INVOICE_USER_ID + " INTEGER, "
+                + INVOICE_DATE + " TEXT DEFAULT (datetime('now', 'localtime')), "
+                + INVOICE_STATUS + " TEXT DEFAULT 'PENDING', "
+                + INVOICE_TOTAL_AMOUNT + " REAL, "
+                + "FOREIGN KEY (" + INVOICE_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + USER_ID + ")) ";
+        db.execSQL(CREATE_TABLE_INVOICE);
+
+        String CREATE_TABLE_INVOICE_DETAIL = "CREATE TABLE " + TABLE_INVOICE_DETAIL + " ("
+                + DETAIL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + DETAIL_INVOICE_ID + " INTEGER NOT NULL, "
+                + DETAIL_PRODUCT_ID + " INTEGER NOT NULL, "
+                + DETAIL_QUANTITY + " INTEGER NOT NULL, "
+                + DETAIL_TOTAL_PRICE + " REAL NOT NULL, "
+                + "FOREIGN KEY (" + DETAIL_INVOICE_ID + ") REFERENCES " + TABLE_INVOICE + "(" + INVOICE_ID + "), "
+                + "FOREIGN KEY (" + DETAIL_PRODUCT_ID + ") REFERENCES " + TABLE_PRODUCTS + "(" + COLUMN_ID + "))";
+        db.execSQL(CREATE_TABLE_INVOICE_DETAIL);
     }
 
     @Override
@@ -162,7 +198,20 @@ public class DBHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_PRODUCTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_CART);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_FAVORITE);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVOICE);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVOICE_DETAIL);
         onCreate(db);
+    }
+    public int getInvoiceID(int userID) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT MAX(invoice_id) FROM " + TABLE_INVOICE,null);
+        int invoiceId = -1;
+        if (cursor.moveToFirst()) {
+            invoiceId = cursor.getInt(0);
+        }
+        cursor.close();
+        db.close();
+        return invoiceId;
     }
 
     public void addUser(String name, String email, String password) {
@@ -228,6 +277,43 @@ public class DBHelper extends SQLiteOpenHelper {
         cursor.close();
         db.close();
     }
+    public void addInvoice(int userId, double totalAmount) {;
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(INVOICE_USER_ID, userId);
+        values.put(INVOICE_TOTAL_AMOUNT, totalAmount);
+        db.insert(TABLE_INVOICE, null, values);
+        db.close();
+    }
+    public void addInvoiceDetail(int ivoiceId, int userID){
+        SQLiteDatabase db = this.getWritableDatabase();
+        String query = "SELECT p.*, c.quantity FROM " + TABLE_PRODUCTS + " p " +
+                "INNER JOIN " + TABLE_CART + " c ON p.id = c.productId " +
+                "WHERE c.userId = ?";
+        Cursor cursor = db.rawQuery(query,new String[]{String.valueOf(userID)});
+        if (cursor != null&&cursor.moveToFirst()){
+            do{
+                int productId = cursor.getColumnIndex(COLUMN_ID);
+                int priceIndex = cursor.getColumnIndex(COLUMN_PRICE);
+                int quantityIndex = cursor.getColumnIndex(CART_QUANTITY);
+
+                if (productId != -1 && priceIndex != -1 && quantityIndex != -1){
+                    ContentValues values = new ContentValues();
+                    values.put(DETAIL_INVOICE_ID,ivoiceId);
+                    values.put(DETAIL_PRODUCT_ID ,cursor.getInt(productId));
+                    values.put(DETAIL_QUANTITY,cursor.getInt(quantityIndex));
+                    values.put(DETAIL_TOTAL_PRICE ,cursor.getDouble(priceIndex)*cursor.getInt(quantityIndex));
+                    db.insert(TABLE_INVOICE_DETAIL, null, values);
+                }
+            }while (cursor.moveToNext());
+        }
+        if (cursor != null) {
+            cursor.close();
+        }
+        if (db != null) {
+            db.close();
+        }
+    }
 
     public void deleteformCart(int productId, int userId) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -275,6 +361,7 @@ public class DBHelper extends SQLiteOpenHelper {
         db.close();
         return SubTotal;
     }
+
 
     public List<Product> getAllProducts() {
         List<Product> productList = new ArrayList<>();
@@ -416,6 +503,96 @@ public class DBHelper extends SQLiteOpenHelper {
         db.close();
         return cartItems;
     }
+    public List<Invoice> getAllInvoice(int userID){
+        List<Invoice> Listinvoice = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT p.*, c.name FROM " + TABLE_INVOICE + " p " +
+                "INNER JOIN " + TABLE_USERS + " c ON c.id = p.userId " +
+                "WHERE p.userId = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(userID)});
+        if(cursor.moveToFirst()){
+            do {
+                int idIndex = cursor.getColumnIndex(INVOICE_ID);
+                int nameIndex = cursor.getColumnIndex(USER_NAME);
+                int DateIndex = cursor.getColumnIndex(INVOICE_DATE);
+                int StatusIndex = cursor.getColumnIndex(INVOICE_STATUS);
+                int priceIndex = cursor.getColumnIndex(INVOICE_TOTAL_AMOUNT);
+
+                if (idIndex != -1 ) {
+                    Invoice invoice = new Invoice(
+                            cursor.getInt(idIndex),
+                            cursor.getString(nameIndex),
+                            cursor.getString(DateIndex),
+                            cursor.getString(StatusIndex),
+                            cursor.getDouble(priceIndex)
+                    );
+                    Listinvoice.add(invoice);
+                }
+            }while (cursor.moveToNext());
+        }
+        return Listinvoice;
+    }
+    public List<Product> getInvoiceDetail(int InvoiceID) {
+        List<Product> ListInvoceDetail = new ArrayList<>();
+        SQLiteDatabase db = null;
+        Cursor cursor = null;
+
+        try {
+            db = this.getReadableDatabase();
+            String query = "SELECT p.*, c.quantity FROM " + TABLE_PRODUCTS + " p " +
+                    "INNER JOIN " + TABLE_INVOICE_DETAIL + " c ON p.id = c.productId " +
+                    "INNER JOIN " + TABLE_INVOICE + " d ON d.invoice_id = c.invoice_id " +
+                    "WHERE d.invoice_id = ?";
+            Log.d("SQL Query", query); // Log truy vấn
+            cursor = db.rawQuery(query, new String[]{String.valueOf(InvoiceID)});
+
+            if (cursor != null && cursor.moveToFirst()) {
+                Log.d("Cursor", "Count: " + cursor.getCount());
+                do {
+                    int idIndex = cursor.getColumnIndex(COLUMN_ID);
+                    int nameIndex = cursor.getColumnIndex(COLUMN_NAME);
+                    int categoryIndex = cursor.getColumnIndex(COLUMN_CATEGORY);
+                    int ratingIndex = cursor.getColumnIndex(COLUMN_RATING);
+                    int imageResIdIndex = cursor.getColumnIndex(COLUMN_IMAGE_RES_ID);
+                    int priceIndex = cursor.getColumnIndex(COLUMN_PRICE);
+                    int quantityIndex = cursor.getColumnIndex(DETAIL_QUANTITY);
+
+                    // Kiểm tra cột hợp lệ
+                    if (idIndex != -1 && nameIndex != -1 && imageResIdIndex != -1 &&
+                            priceIndex != -1 && quantityIndex != -1) {
+                        Product product = new Product(
+                                cursor.getInt(idIndex),
+                                cursor.getString(nameIndex),
+                                cursor.getInt(imageResIdIndex),
+                                cursor.getString(categoryIndex),
+                                cursor.getDouble(ratingIndex),
+                                cursor.getDouble(priceIndex),
+                                cursor.getInt(quantityIndex)
+                        );
+                        Log.d("Product", "Added: " + product.getName());
+                        ListInvoceDetail.add(product);
+                    } else {
+                        Log.e("Cursor", "Invalid column index");
+                    }
+                } while (cursor.moveToNext());
+            } else {
+                Log.d("Cursor", "No data found for InvoiceID: " + InvoiceID);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.e("DB Error", e.getMessage());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            if (db != null) {
+                db.close();
+            }
+        }
+
+        return ListInvoceDetail;
+    }
+
 
     public void addToFavorite(int productId, int userId){
         SQLiteDatabase db = this.getWritableDatabase();
