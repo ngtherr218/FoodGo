@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat;
 
 import com.dinuscxj.progressbar.CircleProgressBar;
 import com.example.orderfoodbtl.DBHelper.DBHelper;
+import com.google.android.gms.maps.model.LatLng;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,7 +42,7 @@ import java.util.Random;
 public class PaymentActivity extends AppCompatActivity {
 
     DBHelper dbHelper;
-    TextView subtotalValue, totalValue, totalValue2, submit;
+    TextView subtotalValue, totalValue, totalValue2, submit, deliveryValue, txtTime;
     ImageButton back, changeLocation;
     Button goBack;
     TextView et_address;
@@ -51,6 +52,9 @@ public class PaymentActivity extends AppCompatActivity {
     private Dialog loadingDialog;
     boolean flag = true;
     double latitude, longitude;
+    double distance, time;
+    LatLng shopLocation, curentLocation;
+    Intent intent;
 
 
     @Override
@@ -58,6 +62,7 @@ public class PaymentActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_payment);
 
+        deliveryValue = findViewById(R.id.deliveryValue);
         subtotalValue = findViewById(R.id.subtotalValue);
         totalValue = findViewById(R.id.totalValue);
         totalValue2 = findViewById(R.id.totalValue2);
@@ -65,6 +70,9 @@ public class PaymentActivity extends AppCompatActivity {
         submit = findViewById(R.id.button_submit);
         et_address = findViewById(R.id.et_address);
         changeLocation = findViewById(R.id.location);
+        txtTime = findViewById(R.id.time);
+
+        shopLocation = new LatLng(21.00118127757313, 105.8480665855491);
 
         // Khởi tạo LocationManager
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -99,26 +107,29 @@ public class PaymentActivity extends AppCompatActivity {
         };
         countDownTimer.start();
 
-        Intent intent = getIntent();
+        intent = getIntent();
         subtotalValue.setText(intent.getStringExtra("totalValue"));
 
-        if (intent.hasExtra("newLongitude") && intent.hasExtra("newLatitude")) {
+
+        if (intent.hasExtra("newLongitude") && intent.hasExtra("newLatitude") && intent.hasExtra("distance")) {
             // Nếu có tọa độ từ MapsActivity
             longitude = intent.getDoubleExtra("newLongitude", -1);
             latitude = intent.getDoubleExtra("newLatitude", -1);
+            distance = intent.getDoubleExtra("distance", -1);
 
+            setDeliveryAndTime();
             // Cập nhật địa chỉ từ tọa độ được gửi từ MapsActivity
             if (longitude != -1 && latitude != -1) {
                 getAddressFromLocation(latitude, longitude);
             } else {
                 Toast.makeText(this, "Invalid coordinates received from MapsActivity", Toast.LENGTH_SHORT).show();
                 getCurrentLocation(); // Lấy vị trí hiện tại nếu tọa độ không hợp lệ
-            }
-
+                  }
         } else {
             // Nếu không có tọa độ, lấy vị trí hiện tại
             getCurrentLocation();
         }
+
 
 
         back.setOnClickListener(new View.OnClickListener() {
@@ -127,8 +138,6 @@ public class PaymentActivity extends AppCompatActivity {
                 finish();
             }
         });
-
-
 
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -178,17 +187,18 @@ public class PaymentActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent1 = new Intent(PaymentActivity.this, MapsActivity.class);
-                intent1.putExtra("longitude",longitude);
-                intent1.putExtra("latitude",latitude);
-                intent1.putExtra("totalValue",intent.getStringExtra("totalValue"));
+                intent1.putExtra("longitude", longitude);
+                intent1.putExtra("latitude", latitude);
+                intent1.putExtra("totalValue", intent.getStringExtra("totalValue"));
                 startActivity(intent1);
                 finish();
             }
         });
 
+
     }
 
-    private void getCurrentLocation(){
+    private void getCurrentLocation() {
         // Kiểm tra quyền truy cập vị trí
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -211,6 +221,7 @@ public class PaymentActivity extends AppCompatActivity {
                     latitude = location.getLatitude();
                     longitude = location.getLongitude();
                     getAddressFromLocation(latitude, longitude);
+                    setDeliveryAndTime();
                 }
 
                 @Override
@@ -241,6 +252,23 @@ public class PaymentActivity extends AppCompatActivity {
         }
     }
 
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        // Sử dụng đối tượng Location để tính khoảng cách giữa hai điểm
+        Location location1 = new Location("");
+        location1.setLatitude(lat1);
+        location1.setLongitude(lon1);
+
+        Location location2 = new Location("");
+        location2.setLatitude(lat2);
+        location2.setLongitude(lon2);
+
+        // Tính khoảng cách giữa hai điểm theo đơn vị mét
+        float distanceInMeters = location1.distanceTo(location2);
+
+        // Chuyển đổi khoảng cách sang km
+        return distanceInMeters / 1000;
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -253,7 +281,6 @@ public class PaymentActivity extends AppCompatActivity {
     private void getAddressFromLocation(double latitude, double longitude) {
 
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-
         try {
             // Lấy danh sách các địa chỉ từ tọa độ
             List<android.location.Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
@@ -328,5 +355,25 @@ public class PaymentActivity extends AppCompatActivity {
         if (loadingDialog != null && loadingDialog.isShowing()) {
             loadingDialog.dismiss();
         }
+    }
+
+    private void setDeliveryAndTime(){
+        distance = calculateDistance(latitude,longitude,shopLocation.latitude,shopLocation.longitude);
+        time = (distance / 40) * 60 + 20;
+        txtTime.setText("About " + Math.round(time) + " mins");
+
+        if (distance < 2) {
+            deliveryValue.setText("$2,00");
+        } else if (distance < 5 && distance >= 2) {
+            deliveryValue.setText("$5,00");
+        } else if (distance < 10 && distance >= 5) {
+            deliveryValue.setText("$7,00");
+        } else {
+            deliveryValue.setText("$10,00");
+        }
+        String total = subtotalValue.getText().toString().replace("$","").replace(",",".");
+        String delivery = deliveryValue.getText().toString().replace("$","").replace(",",".");
+        totalValue.setText("$"+ (Double.parseDouble(total)+Double.parseDouble(delivery)));
+        totalValue2.setText("$"+ (Double.parseDouble(total)+Double.parseDouble(delivery)));
     }
 }

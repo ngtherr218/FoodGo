@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentActivity;
 
 import android.content.Intent;
+import android.location.Location;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageButton;
@@ -24,7 +25,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private ActivityMapsBinding binding;
     private Marker currentMarker, shopMarker;
     private ImageButton btnSubmit;
-    private LatLng location;
+    private LatLng location, shopLocation;
     private Intent intent ;
 
     @Override
@@ -48,6 +49,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Intent intent = new Intent(MapsActivity.this, PaymentActivity.class);
                 intent.putExtra("newLatitude", location.latitude);
                 intent.putExtra("newLongitude", location.longitude);
+                intent.putExtra("distance", calculateDistance(location.latitude, location.longitude, shopLocation.latitude,shopLocation.longitude));
                 intent.putExtra("totalValue", totalValue);
                 startActivity(intent);
                 finish();
@@ -81,8 +83,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         MarkerOptions markerOptions = new MarkerOptions().position(location).title("Drag me!").draggable(true); // Cho phép kéo thả
         currentMarker = mMap.addMarker(markerOptions);
 
+        shopLocation = new LatLng(21.00118127757313,105.8480665855491);
         shopMarker = mMap.addMarker(new MarkerOptions()
-                .position(new LatLng(21.00118127757313,105.8480665855491)).title("Shoppp").draggable(true));
+                .position(shopLocation).title("Shoppp").draggable(true));
 
         // Lắng nghe sự kiện kéo thả marker
         mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
@@ -116,5 +119,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 16.0f));
             }
         });
+    }
+
+    private  double  calculateDistance(double lat1, double lon1, double lat2, double lon2){
+        // Sử dụng đối tượng Location để tính khoảng cách giữa hai điểm
+        Location location1 = new Location("");
+        location1.setLatitude(lat1);
+        location1.setLongitude(lon1);
+
+        Location location2 = new Location("");
+        location2.setLatitude(lat2);
+        location2.setLongitude(lon2);
+
+        // Tính khoảng cách giữa hai điểm theo đơn vị mét
+        float distanceInMeters = location1.distanceTo(location2);
+
+        // Chuyển đổi khoảng cách sang km
+        return distanceInMeters / 1000;
     }
 }
