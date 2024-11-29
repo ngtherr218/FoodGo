@@ -50,6 +50,7 @@ public class PaymentActivity extends AppCompatActivity {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
     private Dialog loadingDialog;
     boolean flag = true;
+    double latitude, longitude;
 
 
     @Override
@@ -98,20 +99,25 @@ public class PaymentActivity extends AppCompatActivity {
         };
         countDownTimer.start();
 
-        // Kiểm tra quyền truy cập vị trí
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            // Nếu quyền đã được cấp, bắt đầu lấy vị trí
-            startListeningLocation();
-        } else {
-            // Nếu quyền chưa được cấp, yêu cầu quyền
-            ActivityCompat.requestPermissions(this,
-                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        }
-
         Intent intent = getIntent();
         subtotalValue.setText(intent.getStringExtra("totalValue"));
+        if (intent.hasExtra("newLongitude") && intent.hasExtra("newLatitude")) {
+            // Nếu có tọa độ từ MapsActivity
+            longitude = intent.getDoubleExtra("newLongitude", -1);
+            latitude = intent.getDoubleExtra("newLatitude", -1);
 
+            // Cập nhật địa chỉ từ tọa độ được gửi từ MapsActivity
+            if (longitude != -1 && latitude != -1) {
+                getAddressFromLocation(latitude, longitude);
+            } else {
+                Toast.makeText(this, "Invalid coordinates received from MapsActivity", Toast.LENGTH_SHORT).show();
+                getCurrentLocation(); // Lấy vị trí hiện tại nếu tọa độ không hợp lệ
+            }
+
+        } else {
+            // Nếu không có tọa độ, lấy vị trí hiện tại
+            getCurrentLocation();
+        }
 
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -120,22 +126,19 @@ public class PaymentActivity extends AppCompatActivity {
             }
         });
 
+
+
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                if (et_address.getText().toString().isEmpty()) {
-                    Toast.makeText(PaymentActivity.this, "Enter the address to send to.", Toast.LENGTH_SHORT).show();
-                    return;
-                }
 
                 dbHelper = new DBHelper(PaymentActivity.this);
                 int userID = dbHelper.getUserId(PaymentActivity.this);
                 String valueString = totalValue2.getText().toString().replace("$", "").trim();
                 double totalValue;
                 try {
-                    totalValue = Double.parseDouble(valueString.replace(",","."));
-                    Toast.makeText(PaymentActivity.this, "heheh "+ totalValue, Toast.LENGTH_SHORT).show();
+                    totalValue = Double.parseDouble(valueString.replace(",", "."));
+                    Toast.makeText(PaymentActivity.this, "heheh " + totalValue, Toast.LENGTH_SHORT).show();
                 } catch (NumberFormatException e) {
                     totalValue = 0.0; // Giá trị mặc định nếu có lỗi
                     e.printStackTrace();
@@ -173,11 +176,26 @@ public class PaymentActivity extends AppCompatActivity {
         changeLocation.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent1 = new Intent(PaymentActivity.this,MapsActivity.class);
+                Intent intent1 = new Intent(PaymentActivity.this, MapsActivity.class);
+                intent1.putExtra("longitude",longitude);
+                intent1.putExtra("latitude",latitude);
                 startActivity(intent1);
             }
         });
 
+    }
+
+    private void getCurrentLocation(){
+        // Kiểm tra quyền truy cập vị trí
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            // Nếu quyền đã được cấp, bắt đầu lấy vị trí
+            startListeningLocation();
+        } else {
+            // Nếu quyền chưa được cấp, yêu cầu quyền
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        }
     }
 
     private void startListeningLocation() {
@@ -187,8 +205,8 @@ public class PaymentActivity extends AppCompatActivity {
                 @Override
                 public void onLocationChanged(Location location) {
                     // Khi có thay đổi vị trí, nhận được thông báo
-                    double latitude = location.getLatitude();
-                    double longitude = location.getLongitude();
+                    latitude = location.getLatitude();
+                    longitude = location.getLongitude();
                     Toast.makeText(PaymentActivity.this, "Vị trí hiện tại: " +
                             "Latitude: " + latitude + ", Longitude: " + longitude, Toast.LENGTH_LONG).show();
                     getAddressFromLocation(latitude, longitude);
