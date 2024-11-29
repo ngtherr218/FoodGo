@@ -22,13 +22,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     private ActivityMapsBinding binding;
-    private Marker currentMarker;
+    private Marker currentMarker, shopMarker;
     private ImageButton btnSubmit;
     private LatLng location;
+    private Intent intent ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        intent = getIntent();
+        String totalValue = intent.getStringExtra("totalValue");
 
         binding = ActivityMapsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -44,6 +48,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Intent intent = new Intent(MapsActivity.this, PaymentActivity.class);
                 intent.putExtra("newLatitude", location.latitude);
                 intent.putExtra("newLongitude", location.longitude);
+                intent.putExtra("totalValue", totalValue);
                 startActivity(intent);
                 finish();
             }
@@ -63,11 +68,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        Intent intent = getIntent();
+        intent = getIntent();
         double longitude = intent.getDoubleExtra("longitude", -1);
         double latitude = intent.getDoubleExtra("latitude", -1);
-
-        Toast.makeText(this, longitude + " + " + latitude, Toast.LENGTH_SHORT).show();
 
         // Add a marker in your location and move the camera
         location = new LatLng(latitude, longitude);
@@ -77,6 +80,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         MarkerOptions markerOptions = new MarkerOptions().position(location).title("Drag me!").draggable(true); // Cho phép kéo thả
         currentMarker = mMap.addMarker(markerOptions);
+
+        shopMarker = mMap.addMarker(new MarkerOptions()
+                .position(new LatLng(21.00118127757313,105.8480665855491)).title("Shoppp").draggable(true));
 
         // Lắng nghe sự kiện kéo thả marker
         mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {

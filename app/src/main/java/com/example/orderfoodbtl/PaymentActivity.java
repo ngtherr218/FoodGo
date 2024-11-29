@@ -101,6 +101,7 @@ public class PaymentActivity extends AppCompatActivity {
 
         Intent intent = getIntent();
         subtotalValue.setText(intent.getStringExtra("totalValue"));
+
         if (intent.hasExtra("newLongitude") && intent.hasExtra("newLatitude")) {
             // Nếu có tọa độ từ MapsActivity
             longitude = intent.getDoubleExtra("newLongitude", -1);
@@ -118,6 +119,7 @@ public class PaymentActivity extends AppCompatActivity {
             // Nếu không có tọa độ, lấy vị trí hiện tại
             getCurrentLocation();
         }
+
 
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -138,7 +140,6 @@ public class PaymentActivity extends AppCompatActivity {
                 double totalValue;
                 try {
                     totalValue = Double.parseDouble(valueString.replace(",", "."));
-                    Toast.makeText(PaymentActivity.this, "heheh " + totalValue, Toast.LENGTH_SHORT).show();
                 } catch (NumberFormatException e) {
                     totalValue = 0.0; // Giá trị mặc định nếu có lỗi
                     e.printStackTrace();
@@ -179,7 +180,9 @@ public class PaymentActivity extends AppCompatActivity {
                 Intent intent1 = new Intent(PaymentActivity.this, MapsActivity.class);
                 intent1.putExtra("longitude",longitude);
                 intent1.putExtra("latitude",latitude);
+                intent1.putExtra("totalValue",intent.getStringExtra("totalValue"));
                 startActivity(intent1);
+                finish();
             }
         });
 
@@ -207,8 +210,6 @@ public class PaymentActivity extends AppCompatActivity {
                     // Khi có thay đổi vị trí, nhận được thông báo
                     latitude = location.getLatitude();
                     longitude = location.getLongitude();
-                    Toast.makeText(PaymentActivity.this, "Vị trí hiện tại: " +
-                            "Latitude: " + latitude + ", Longitude: " + longitude, Toast.LENGTH_LONG).show();
                     getAddressFromLocation(latitude, longitude);
                 }
 
