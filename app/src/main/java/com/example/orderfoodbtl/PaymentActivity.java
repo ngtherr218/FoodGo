@@ -172,6 +172,7 @@ public class PaymentActivity extends AppCompatActivity {
                 goBack.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
+                        dialog.cancel();
                         dbHelper = new DBHelper(PaymentActivity.this);
                         int userID = dbHelper.getUserId(PaymentActivity.this);
                         dbHelper.deleteAllCard(userID);
